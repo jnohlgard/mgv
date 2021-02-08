@@ -15,10 +15,12 @@ verify_checksums() {
   # Check for file existence
   [ -f "$1" ] || return 1
   # Verify file size first because it is quick
-  actual_size=$(wc -c < "$1")
-  if [ "${actual_size}" -ne "${target_size}" ]; then
-    >&2 printf 'Size mismatch, expected: %d, actual: %d\n' "${target_size}" "${actual_size}"
-    return 1
+  if [ -n "${target_size}" ]; then
+    actual_size=$(wc -c < "$1")
+    if [ "${actual_size}" -ne "${target_size}" ]; then
+      >&2 printf 'Size mismatch, expected: %d, actual: %d\n' "${target_size}" "${actual_size}"
+      return 1
+    fi
   fi
   # Verify checksums
   [ -z "${checksum_md5}" ] || printf '%s *%s\n' "${checksum_md5}" "$1" | ${cmd_check_md5} || return 1
