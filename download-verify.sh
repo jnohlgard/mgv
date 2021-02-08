@@ -14,6 +14,12 @@ usage() {
 verify_checksums() {
   # Check for file existence
   [ -f "$1" ] || return 1
+  # Verify file size first because it is quick
+  actual_size=$(wc -c < "$1")
+  if [ "${actual_size}" -ne "${target_size}" ]; then
+    >&2 printf 'Size mismatch, expected: %d, actual: %d\n' "${target_size}" "${actual_size}"
+    return 1
+  fi
   # Verify checksums
   [ -z "${checksum_md5}" ] || printf '%s *%s\n' "${checksum_md5}" "$1" | ${cmd_check_md5} || return 1
   [ -z "${checksum_sha1}" ] || printf '%s *%s\n' "${checksum_sha1}" "$1" | ${cmd_check_sha1} || return 1
@@ -32,6 +38,7 @@ assign_once() {
 checksum_md5=
 checksum_sha1=
 checksum_sha256=
+target_size=
 outfile=
 
 while [ "$#" -gt 0 ]; do
@@ -45,6 +52,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --sha1)
       assign_once checksum_sha1 "$2"
+      ;;
+    -s|--size)
+      assign_once target_size "$2"
       ;;
     -o|--outfile)
       assign_once outfile "$2"
