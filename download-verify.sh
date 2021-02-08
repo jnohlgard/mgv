@@ -12,6 +12,9 @@ usage() {
 }
 
 verify_checksums() {
+  # Check for file existence
+  [ -f "$1" ] || return 1
+  # Verify checksums
   [ -z "${checksum_md5}" ] || printf '%s *%s\n' "${checksum_md5}" "$1" | ${cmd_check_md5} || return 1
   [ -z "${checksum_sha1}" ] || printf '%s *%s\n' "${checksum_sha1}" "$1" | ${cmd_check_sha1} || return 1
   [ -z "${checksum_sha256}" ] || printf '%s *%s\n' "${checksum_sha256}" "$1" | ${cmd_check_sha256} || return 1
