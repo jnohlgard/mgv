@@ -6,7 +6,7 @@ cmd_check_sha1='sha1sum -c'
 cmd_check_sha256='sha256sum -c'
 
 usage() {
-  >&2 printf 'Usage: %s [-s <sha256>] [-m <md5>] [-1 <sha1>] [-o outfile] <URL>\n\n' "$0"
+  >&2 printf 'Usage: %s [--sha256 <sha256>] [--md5 <md5>] [--sha1 <sha1>] [-o|--outfile outfile] <URL>\n\n' "$0"
   >&2 printf 'Verify checksums of outfile and (re-)download from URL\n'
   >&2 printf 'outfile will use basename of URL by default\n'
 }
@@ -21,32 +21,62 @@ verify_checksums() {
   return 0
 }
 
+assign_once() {
+  if [ -n "$(eval printf '%s' "\${${1}}")" ]; then
+    >&2 printf '%s given multiple times\n' "$1"
+    exit 1
+  fi
+  eval "${1}='${2}'"
+}
+
 checksum_md5=
 checksum_sha1=
 checksum_sha256=
 outfile=
 
-while getopts "1:m:s:" opt; do
-  case "${opt}" in
-  s)
-    checksum_sha256=${OPTARG}
+while [ "$#" -gt 0 ]; do
+  while [ "$#" -ge 2 ]; do
+    case "$1" in
+    --sha256)
+      assign_once checksum_sha256 "$2"
+      ;;
+    --md5)
+      assign_once checksum_md5 "$2"
+      ;;
+    --sha1)
+      assign_once checksum_sha1 "$2"
+      ;;
+    -o|--outfile)
+      assign_once outfile "$2"
+      ;;
+    *)
+      break
+      ;;
+    esac
+    shift 2
+  done
+
+  case "$1" in
+  -h|--help)
+    usage
+    exit 0
     ;;
-  m)
-    checksum_md5=${OPTARG}
+  --)
+    # Stop option processing
+    shift
+    break
     ;;
-  1)
-    checksum_sha1=${OPTARG}
-    ;;
-  o)
-    outfile=${OPTARG}
-    ;;
-  *)
+  -*)
+    >&2 printf 'Error: unknown option %s\n' "$1"
     usage
     exit 1
     ;;
+  *)
+    break
+    ;;
   esac
+  shift
 done
-shift $((OPTIND-1))
 
 if [ $# -ne 1 ]; then
   usage
