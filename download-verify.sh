@@ -1,6 +1,10 @@
 #!/bin/sh
 set -euo pipefail
 
+cmd_check_md5='md5sum -c'
+cmd_check_sha1='sha1sum -c'
+cmd_check_sha256='sha256sum -c'
+
 usage() {
   >&2 printf 'Usage: %s [-s <sha256>] [-m <md5>] [-1 <sha1>] [-o outfile] <URL>\n\n' "$0"
   >&2 printf 'Verify checksums of outfile and (re-)download from URL\n'
@@ -8,9 +12,9 @@ usage() {
 }
 
 verify_checksums() {
-  [ -z "${checksum_md5}" ] || printf '%s *%s\n' "${checksum_md5}" "$1" | md5sum -c || return 1
-  [ -z "${checksum_sha1}" ] || printf '%s *%s\n' "${checksum_sha1}" "$1" | sha1sum -c || return 1
-  [ -z "${checksum_sha256}" ] || printf '%s *%s\n' "${checksum_sha256}" "$1" | sha256sum -c || return 1
+  [ -z "${checksum_md5}" ] || printf '%s *%s\n' "${checksum_md5}" "$1" | ${cmd_check_md5} || return 1
+  [ -z "${checksum_sha1}" ] || printf '%s *%s\n' "${checksum_sha1}" "$1" | ${cmd_check_sha1} || return 1
+  [ -z "${checksum_sha256}" ] || printf '%s *%s\n' "${checksum_sha256}" "$1" | ${cmd_check_sha256} || return 1
   return 0
 }
 
