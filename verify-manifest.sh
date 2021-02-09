@@ -67,6 +67,7 @@ for filename in "$@"; do
   filename_base="$(basename "${filename}")"
   actual_size=$(wc -c <"${filename}")
   result=
+  found=0
   code=0
   while read -r tag filename_in_manifest expected_size checksums; do
     #printf 'tag: <%s>, filename: <%s>, size: <%s>, checksums: <%s>\n' "${tag}" "${filename_in_manifest}" "${expected_size}" "${checksums}"
@@ -76,6 +77,7 @@ for filename in "$@"; do
     if [ "${filename_in_manifest}" != "${filename_base}" ]; then
       continue
     fi
+    found=1
     if [ "${expected_size}" != "-" ]; then
       if [ "${expected_size}" -ne "${actual_size}" ]; then
         >&2 printf '%s: Size mismatch, expected %d, actual %d\n' "${filename}"
@@ -101,6 +103,10 @@ for filename in "$@"; do
     fi
     result=OK
   done < "${manifest_file}"
+  if [ "${found}" -eq 0 ]; then
+    result="Not found in manifest ${manifest_file}"
+    code=8
+  fi
   if [ -z "${result}" ]; then
     printf 'Not checked: %s\n' "${filename}"
   else
