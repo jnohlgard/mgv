@@ -6,9 +6,9 @@ cmd_check_sha1='sha1sum -c'
 cmd_check_sha256='sha256sum -c'
 
 usage() {
-  >&2 printf 'Usage: %s [--sha256 <sha256>] [--md5 <md5>] [--sha1 <sha1>] [-o|--outfile outfile] <URL>\n\n' "$0"
-  >&2 printf 'Verify checksums of outfile and (re-)download from URL\n'
-  >&2 printf 'outfile will use basename of URL by default\n'
+  printf 'Usage: %s [--sha256 <sha256>] [--md5 <md5>] [--sha1 <sha1>] [-o|--outfile outfile] <URL>\n\n' "$0"
+  printf 'Verify checksums of outfile and (re-)download from URL\n'
+  printf 'outfile will use basename of URL by default\n'
 }
 
 verify_checksums() {
@@ -80,7 +80,7 @@ while [ "$#" -gt 0 ]; do
     ;;
   -*)
     >&2 printf 'Error: unknown option %s\n' "$1"
-    usage
+    >&2 usage
     exit 1
     ;;
   *)
@@ -91,7 +91,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ $# -ne 1 ]; then
-  usage
+  >&2 usage
   exit 1
 fi
 
