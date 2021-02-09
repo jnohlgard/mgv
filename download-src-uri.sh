@@ -3,13 +3,13 @@
 set -euo pipefail
 
 usage() {
-  >&2 printf 'Usage: %s <destination-file1> [... <destination-fileN>]\n'
-  >&2 printf 'Download the files given from the URLs found in the <destination-file>.src-uri file\n'
-  >&2 printf 'Only URLs understood by curl are supported\n'
+  printf 'Usage: %s <destination-file1> [... <destination-fileN>]\n'
+  printf 'Download the files given from the URLs found in the <destination-file>.src-uri file\n'
+  printf 'Only URLs understood by curl are supported\n'
 }
 
-if [ "$#" -lt 1 ]; then
-  usage
+if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
+  >&2 usage
   exit 1
 fi
 
