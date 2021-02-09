@@ -24,7 +24,7 @@ else
 fi
 
 while [ "$#" -gt 0 ]; do
-  dest_file=$1;shift
+  dest_file=${1%%.src-uri};shift
   if [ -s "${dest_file}" ]; then
     >&2 printf '%s: already downloaded\n' "${dest_file}"
     continue
