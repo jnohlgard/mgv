@@ -23,17 +23,18 @@ verify_cmd="${tools_path}/verify-manifest.sh"
 
 ret=0
 for dest in "$@"; do
+  dest_file=${dest%%.src-uri}
   code=0
-  "${download_cmd}" "${dest}" || code=$?
+  "${download_cmd}" "${dest_file}" || code=$?
   if [ "${code}" -ne 0 ]; then
-    >&2 printf '%s: Download failure\n' "${dest}"
+    >&2 printf '%s: Download failure\n' "${dest_file}"
     ret=${code}
     continue
   fi
-  "${verify_cmd}" "${manifest_file}" "${dest}" || code=$?
+  "${verify_cmd}" "${manifest_file}" "${dest_file}" || code=$?
   if [ "${code}" -ne 0 ]; then
-    mv -f "${dest}" "${dest}.verify-failed"
-    >&2 printf '%s: Verification failure\n' "${dest}"
+    mv -f "${dest_file}" "${dest_file}.verify-failed"
+    >&2 printf '%s: Verification failure\n' "${dest_file}"
     ret=${code}
     continue
   fi
