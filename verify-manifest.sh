@@ -10,7 +10,7 @@ cmd_check_sha512='sha512sum -c'
 verbose_verify=0
 
 usage() {
-  printf 'Usage: %s <manifest> <file1> [... <fileN>]\n'
+  printf 'Usage: %s <manifest> <file1> [... <fileN>]\n' "$0"
   printf 'Verify checksums of the given files using the given Manifest file\n'
   printf 'Inspired by Gentoo Manifest2 format, see GLEP-74: https://www.gentoo.org/glep/glep-0074.html\n'
   printf 'Only the DIST tag is supported\n'
