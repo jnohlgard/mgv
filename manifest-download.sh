@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
   printf 'Usage: %s <manifest-file> <destination-file1> [... <destination-fileN>]\n\n' "$0"
-  printf 'Download the given files and verify agains the manifest-file\n'
+  printf 'Download the given files and verify against the manifest-file\n'
 }
 
 if [ "$#" -lt 2 ] || [ "$1" = '--help' ]; then
