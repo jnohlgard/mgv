@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s <destination-file1> [... <destination-fileN>]\n'
+  printf 'Usage: %s <destination-file1> [... <destination-fileN>]\n' "$0"
   printf 'Download the files given from the URLs found in the <destination-file>.src-uri file\n'
   printf 'Only URLs understood by curl are supported\n'
 }
