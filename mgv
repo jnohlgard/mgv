@@ -33,9 +33,6 @@ cmd_check_sha3_256='sha3sum -A 256 -c'
 cmd_check_sha3_512='sha3sum -A 512 -c'
 cmd_check_blake2b='b2sum -c'
 
-# Set to 1 for debugging
-verbose_verify=0
-
 download_file() {
   if [ "$#" -ne 2 ]; then
     printf 'Usage: download_file <destination-file> <URL>\n'
@@ -178,7 +175,7 @@ cmd_get() {
       fi
       if ! check_size "${filename}" "${expected_size}"; then
         ret=$?
-        >&2 printf '%s: Size mismatch, expected %d, actual %d\n' "${filename}"
+        >&2 printf '%s: Size mismatch, expected %d bytes\n' "${filename}" "${expected_size}"
         continue
       fi
       # NB: no quotes on ${checksums} because we want to expand to separate arguments
