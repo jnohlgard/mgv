@@ -1,8 +1,36 @@
-# download-verify.sh
+# mgv
 
-Downloader script which only downloads a file when it is missing or corrupt.
+Tool for verifying file checksums and re-downloading them if not correct.
 
-    Usage: ./download-verify.sh [--sha256 <sha256>] [--md5 <md5>] [--sha1 <sha1>] [-o|--outfile outfile] <URL>
+## `.mgv` File format
 
-    Verify checksums of outfile and (re-)download from URL
-    outfile will use basename of URL by default
+The file format was inspired from the Portage Manifest format used in Gentoo Linux, with some modifications.
+
+Each line of a .mgv file represents a file name, size, its source URL and its checksums:
+
+```
+DIST example.tar.gz 12260 URL https://raw.githubusercontent.com/jnohlgard/mgv/main/example/example.tar.gz SHA256 da6c6de5f391058a9fb6ced11c9b41349042e22c377313fedaf894b50292ae0c
+```
+
+## Installation
+
+Put `mgv` in your `PATH`.
+
+
+## Dependencies
+
+mgv requires curl or wget to download files and some external tools for computing checksums:
+
+ - MD5: `md5sum`
+ - SHA1: `sha1sum`
+ - SHA256: `sha256sum`
+ - SHA512: `sha512sum`
+ - BLAKE2B: `b2sum`
+
+All of the above are part of the coreutils package on Linux and should be available on most systems.
+Busybox also provides implementations of everything above except `b2sum`.
+The script avoids bashisms and tries to be posix sh compliant. It should work with bash, dash and busybox sh.
+
+## References
+
+ - https://www.gentoo.org/glep/glep-0074.html

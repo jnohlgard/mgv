@@ -2,18 +2,15 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s [manifest-file] <command> <destination-file1> [... <destination-fileN>]\n\n' "$0"
-  printf 'Download the given files and verify against the manifest-file\n'
-  printf 'manifest-file defaults to "Manifest" if not provided\n'
-  printf 'Inspired by Gentoo Manifest2 format, see GLEP-74: https://www.gentoo.org/glep/glep-0074.html\n'
-  printf 'Only the DIST tag is supported\n'
-  printf 'Currently supported checksum tags:\n'
-  printf ' - %s\n' MD5 SHA1 SHA256 SHA512 BLAKE2B
+  printf 'Usage: %s <command> <destination-file1> [... <destination-fileN>]\n\n' "${0##*/}"
+  printf 'Download the given files and verify checksums\n'
+  printf 'Supported checksum tags:\n'
+  printf ' - %s\n' MD5 SHA1 SHA224 SHA256 SHA384 SHA512 BLAKE2B
 }
 
 if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
   >&2 usage
-  exit 1
+  exit 2
 fi
 
 resume_download_to=
@@ -28,189 +25,176 @@ fi
 
 cmd_check_md5='md5sum -c'
 cmd_check_sha1='sha1sum -c'
+cmd_check_sha224='sha224sum -c'
 cmd_check_sha256='sha256sum -c'
+cmd_check_sha384='sha384sum -c'
 cmd_check_sha512='sha512sum -c'
+cmd_check_sha3_256='sha3sum -A 256 -c'
+cmd_check_sha3_512='sha3sum -A 512 -c'
 cmd_check_blake2b='b2sum -c'
 
 # Set to 1 for debugging
 verbose_verify=0
 
-manifest_file=Manifest
-
-is_manifest_file() {
-  [ -r "$1" ] && [ "$(head -c 4 "$1" 2>/dev/null || true)" = 'DIST' ]
-}
-
-download_files() {
-  if [ "$#" -lt 1 ]; then
-    printf 'Usage: download_files <destination-file1> [... <destination-fileN>]\n'
-    printf 'Download the files given from the URLs found in the <destination-file>.src-uri file\n'
+download_file() {
+  if [ "$#" -ne 2 ]; then
+    printf 'Usage: download_file <destination-file> <URL>\n'
     printf 'Only URLs understood by curl (or wget) are supported\n'
     exit 1
   fi
-  ret=0
-  while [ "$#" -gt 0 ]; do
-    # strip .src-uri ending on the destination file (convenience when using tab completion)
-    dest_file=${1%%.src-uri};shift
-    src_uri_file=${dest_file}.src-uri
-    download_file=${dest_file}.download
-    if [ ! -r "${src_uri_file}" ]; then
-      >&2 printf '%s: not a file\n' "${src_uri_file}"
-      return 1
-    fi
-    src_uri=
-    while read -r line; do
-      if [ -z "${line}" ] || [ "${line:0:1}" = '#' ]; then
-        continue
-      fi
-      src_uri=${line}
-    done < "${src_uri_file}"
-    if [ -z "${src_uri}" ]; then
-      >&2 printf 'Error: Missing URL in %s\n' "${src_uri_file}"
-      return 1
-    fi
-    touch "${dest_file}"
-    code=0
-    ${resume_download_to} "${download_file}" "${src_uri}" && \
-    mv "${download_file}" "${dest_file}" || code=$?
-    if [ "${code}" -ne 0 ]; then
-      ret=${code}
-      >&2 printf 'Download failed: %s\n' "${dest_file}"
-    fi
-  done
-  return ${ret}
+  dest_file=$1
+  url=$2
+  download_file=${dest_file}.download
+  touch "${dest_file}"
+  code=0
+  ${resume_download_to} "${download_file}" "${url}" && \
+  mv "${download_file}" "${dest_file}" || code=$?
+  if [ "${code}" -ne 0 ]; then
+    >&2 printf 'Download failed: %s\n' "${dest_file}"
+  fi
+  return ${code}
 }
 
-verify_checksums() {
-  if [ "$#" -lt 1 ]; then
-    printf 'Usage: verify_checksums <filename> [<checksum type 1> <checksum value 1>] [...]\n'
-    exit 1
+check_size() {
+  if [ "$#" -ne 2 ]; then
+    printf 'Usage: check_size <filename> <size>\n'
+    exit 2
+  fi
+  filename=$1
+  expected_size=$2
+  if ! [ -r "${filename}" ]; then
+    return 1
+  fi
+  if [ "${expected_size}" = "-" ]; then
+    # Ignore size
+    return 0
+  fi
+  actual_size=$(wc -c <"${filename}")
+  [ "${expected_size}" -eq "${actual_size}" ]
+}
+
+verify_file() {
+  if [ "$#" -lt 2 ]; then
+    printf 'Usage: verify_file <filename> [<checksum type 1> <checksum value 1>] [...]\n'
+    exit 2
   fi
   filename=$1;shift
-  checksum_type=
-  checksum_value=
-  for v in "$@"; do
-    if [ -z "${checksum_type}" ]; then
-      checksum_type=$v
-      continue
-    fi
-    checksum_value=$v
+  while [ "$#" -ge 2 ]; do
+    checksum_type=$1
+    checksum_value=$2
+    shift 2
     #printf 'type: %s, value: %s\n' "${checksum_type}" "${checksum_value}"
     printf '%s: ' "${checksum_type}"
     case "${checksum_type}" in
       MD5)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_md5} || return 1
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_md5} || return $?
         ;;
       SHA1)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha1} || return 1
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha1} || return $?
+        ;;
+      SHA224)
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha224} || return $?
         ;;
       SHA256)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha256} || return 1
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha256} || return $?
+        ;;
+      SHA384)
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha384} || return $?
         ;;
       SHA512)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha512} || return 1
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha512} || return $?
+        ;;
+      SHA3_256)
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha3_256} || return $?
+        ;;
+      SHA3_512)
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha3_512} || return $?
         ;;
       BLAKE2B)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_blake2b} || return 1
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_blake2b} || return $?
         ;;
       *)
         printf 'not checked\n'
         ;;
     esac
-    checksum_type=
   done
+  if [ "$#" -ne 0 ]; then
+    >&2 printf 'Error: extra checksum argument "%s"\n' "$@"
+    return 2
+  fi
 }
 
-verify_files() {
-  if [ "$#" -lt 1 ]; then
-    >&2 printf 'Usage: verify_files <file1> [... <fileN>]\n'
-    exit 1
-  fi
-  # suboptimal but simple N*M solution
-  ret=0
-  for filename in "$@"; do
-    filename_base="$(basename "${filename}")"
-    actual_size=$(wc -c < "${filename}")
-    result=
-    found=0
-    code=0
-    while read -r tag filename_in_manifest expected_size checksums; do
-      if [ "${verbose_verify}" -ne 0 ]; then
-        printf 'tag: <%s>, filename: <%s>, size: <%s>, checksums: <%s>\n' "${tag}" "${filename_in_manifest}" "${expected_size}" "${checksums}"
-      fi
-      if [ "${tag}" != "DIST" ]; then
-        continue
-      fi
-      if [ "${filename_in_manifest}" != "${filename_base}" ]; then
-        continue
-      fi
-      found=1
-      if [ "${expected_size}" != "-" ]; then
-        if [ "${expected_size}" -ne "${actual_size}" ]; then
-          >&2 printf '%s: Size mismatch, expected %d, actual %d\n' "${filename}"
-          result='Size mismatch'
-          code=2
-          break
-        fi
-      fi
-      verify_code=0
-      # NB we want expansion of ${checksums} into multiple arguments on the function call below
-      if [ "${verbose_verify}" -eq 0 ]; then
-        verify_checksums "${filename}" ${checksums} > /dev/null || verify_code=$?
-      else
-        verify_checksums "${filename}" ${checksums} || verify_code=$?
-      fi
-      if [ "${verify_code}" -ne 0 ]; then
-        result='Checksum failure'
-        code=${verify_code}
-        break
-      fi
-      result=OK
-    done < "${manifest_file}"
-    if [ "${found}" -eq 0 ]; then
-      result="Not found in manifest ${manifest_file}"
-      code=8
-    fi
-    if [ -z "${result}" ]; then
-      printf 'Not checked: %s\n' "${filename}"
-    else
-      printf '%s: %s\n' "${filename}" "${result}"
-    fi
-    if [ "${code}" -ne 0 ]; then
-      ret=${code}
-    fi
-  done
-  return ${ret}
-}
+do_download=1
 
 cmd_get() {
-  printf 'Using manifest file: %s\n' "${manifest_file}"
   if [ "$#" -lt 1 ]; then
-    >&2 printf 'Usage: get <filename1> [<filename2> ...]\n'
+    >&2 printf 'Usage: mgv get <filename1> [<filename2> ...]\n'
     exit 2
   fi
   ret=0
   for dest in "$@"; do
-    dest_file=${dest%%.src-uri}
-    code=0
-    download_files "${dest_file}" || code=$?
-    if [ "${code}" -ne 0 ]; then
-      ret=${code}
-      continue
+    if [ -r "${dest}.mgv" ]; then
+      mgv_file=${dest}.mgv
+    else
+      mgv_file=${dest}
     fi
-    verify_files "${dest_file}" || code=$?
-    if [ "${code}" -ne 0 ]; then
-      mv -f "${dest_file}" "${dest_file}.verify-failed"
-      ret=${code}
-      continue
+    if [ "${dest%/*}" != "${dest}" ]; then
+      download_path="${dest%/*}"
+    else
+      download_path=$(pwd)
     fi
+    while read kind filename expected_size url_tag url checksums; do
+      case "${kind}" in
+        # skip comments
+        '#'*) continue;;
+        DIST) ;;
+        *)
+          >&2 printf 'Unknown tag "%s"\n' "${kind}"
+          return 1
+          ;;
+      esac
+      case "${filename}" in
+        */*)
+          >&2 printf 'No slashes allowed in filename: %s\n' "${filename}"
+          return 1
+          ;;
+      esac
+      filename="${download_path}/${filename}"
+      printf 'File: %s\n' "${filename}"
+      if [ "${url_tag}" != "URL" ]; then
+        >&2 printf 'Expected "URL" after file size, got "%s"\n' "${url_tag}"
+        return 1
+      fi
+      if [ "${do_download}" -ne 0 ]; then
+        if check_size "${filename}" "${expected_size}" 2>/dev/null; then
+          # NB: no quotes on ${checksums} because we want to expand to separate arguments
+          if verify_file "${filename}" ${checksums}; then
+            # Already downloaded
+            continue
+          fi
+          printf 'Retrying download\n'
+        fi
+        download_file "${filename}" "${url}"
+      fi
+      if ! check_size "${filename}" "${expected_size}"; then
+        ret=$?
+        >&2 printf '%s: Size mismatch, expected %d, actual %d\n' "${filename}"
+        continue
+      fi
+      # NB: no quotes on ${checksums} because we want to expand to separate arguments
+      if ! verify_file "${filename}" ${checksums}; then
+        ret=$?
+        >&2 printf '%s: Checksum verification failed\n' "${filename}"
+        mv -f "${filename}" "${filename}.verify-failed"
+      fi
+    done <"${mgv_file}"
   done
-  exit ${ret}
+  return ${ret}
 }
 
 cmd_verify() {
-  printf 'Using manifest file: %s\n' "${manifest_file}"
-  verify_files "$@"
+  do_download=0
+  cmd_get "$@"
 }
 
 cmd_digest() {
@@ -222,10 +206,6 @@ cmd_inject() {
   >&2 printf 'Not implemented yet!\n'
   exit 2
 }
-
-if is_manifest_file "$1"; then
-  manifest_file=$1; shift
-fi
 
 case "$1" in
   get) shift; cmd_get "$@";;
