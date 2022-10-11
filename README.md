@@ -9,7 +9,7 @@ The file format was inspired from the Portage Manifest format used in Gentoo Lin
 Each line of a .mgv file represents a file name, size, its source URL and its checksums:
 
 ```
-DIST example.tar.gz 12260 URL https://raw.githubusercontent.com/jnohlgard/mgv/main/example/example.tar.gz SHA256 da6c6de5f391058a9fb6ced11c9b41349042e22c377313fedaf894b50292ae0c
+DIST example.tar.gz 12260 URL https://raw.githubusercontent.com/jnohlgard/mgv/d713b00304a07d14fbc6cf7094ce775a979ad697/example/example.tar.gz SHA256 da6c6de5f391058a9fb6ced11c9b41349042e22c377313fedaf894b50292ae0c
 ```
 
 ## Installation
