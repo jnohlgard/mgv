@@ -4,7 +4,13 @@ set -euo pipefail
 usage() {
   printf 'Usage: %s <command> <destination-file1> [... <destination-fileN>]\n\n' "${0##*/}"
   printf 'Download the given files and verify checksums\n'
-  printf 'Supported checksum tags:\n'
+  printf '\nCommands:\n'
+  printf ' get <mgv-file> - Download and verify the file(s) listed in mgv-file\n'
+  printf ' verify <mgv-file> - Only verify the file(s) listed in mgv-file, fail if it is missing\n'
+  printf ' digest <mgv-file> - Hash file(s) listed in mgv-file and write their checksums back into mgv-file\n'
+  printf ' set-url <mgv-file> <new_url> - Change the upstream URL in the given mgv-file\n'
+  printf ' fix-size <mgv-file> - Get the file size from the upstream URLs for files which are missing size in mgv-file and write the sizes back into mgv-file\n'
+  printf '\nSupported checksum tags:\n'
   printf ' - %s\n' MD5 SHA1 SHA224 SHA256 SHA384 SHA512 BLAKE2B
 }
 
@@ -13,15 +19,9 @@ if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
   exit 2
 fi
 
-resume_download_to=
-if command -v curl 2>&1 >/dev/null; then
-  resume_download_to='curl -R -C - -f -L -o'
-elif command -v wget 2>&1 >/dev/null; then
-  resume_download_to='wget --timestamping -c -O'
-else
-  >&2 printf 'Required: curl or wget\n'
-  exit 1
-fi
+
+curl=$(command -v curl 2>/dev/null || true)
+wget=$(command -v wget 2>/dev/null || true)
 
 cmd_check_md5='md5sum -c'
 cmd_check_sha1='sha1sum -c'
@@ -32,6 +32,43 @@ cmd_check_sha512='sha512sum -c'
 cmd_check_sha3_256='sha3sum -A 256 -c'
 cmd_check_sha3_512='sha3sum -A 512 -c'
 cmd_check_blake2b='b2sum -c'
+
+cmd_digest_sha256='sha256sum -b'
+cmd_digest_sha512='sha512sum -b'
+cmd_digest_blake2b='b2sum -b'
+
+resume_download_to() {
+  if [ "$#" -ne 2 ]; then
+    >&2 printf 'Usage: resume_download_to <file> <URL>\n'
+    exit 2
+  fi
+  if [ -n "${curl}" ]; then
+    "${curl}" -R -C - -f -L -o "$1" "$2"
+  elif [ -n "${wget}" ]; then
+    "${wget}" --timestamping -c -O "$1" "$2"
+  else
+    >&2 printf 'Required: curl or wget\n'
+    exit 1
+  fi
+}
+
+check_download_size() {
+  if [ "$#" -ne 1 ]; then
+    >&2 printf 'Usage: check_download_size <URL>\n'
+    exit 2
+  fi
+  if [ -n "${curl}" ]; then
+    "${curl}" -I -X GET -f -L "$1" | grep -i 'content-length:' | tail -n 1 | cut -d: -f2 | tr -cd '[0-9]'
+  elif [ -n "${wget}" ]; then
+    # Note that unlike standalone wget, BusyBox wget does not print the size
+    # when using --spider, but both variants print the Content-Length header
+    # when called with -S
+    "${wget}" --spider -S "$1" | grep -i 'content-length:' | tail -n 1 | cut -d: -f2 | tr -cd '[0-9]'
+  else
+    >&2 printf 'Required: curl or wget\n'
+    exit 1
+  fi
+}
 
 download_file() {
   if [ "$#" -ne 2 ]; then
@@ -44,8 +81,8 @@ download_file() {
   download_file=${dest_file}.download
   touch "${dest_file}"
   code=0
-  ${resume_download_to} "${download_file}" "${url}" && \
-  mv "${download_file}" "${dest_file}" || code=$?
+  resume_download_to "${download_file}" "${url}" && \
+    mv "${download_file}" "${dest_file}" || code=$?
   if [ "${code}" -ne 0 ]; then
     >&2 printf 'Download failed: %s\n' "${dest_file}"
   fi
@@ -121,10 +158,40 @@ verify_file() {
   fi
 }
 
+digest_file() {
+  if [ "$#" -ne 1 ]; then
+    >&2 printf 'Usage: digest_file <filename>\n'
+  fi
+  filename=$1
+  checksums=
+  if command -v ${cmd_digest_sha256} 2>&1 >/dev/null; then
+    checksums="${checksums} SHA256 $(${cmd_digest_sha256} "${filename}" | cut -d' ' -f1)"
+  fi
+  if command -v ${cmd_digest_sha512} 2>&1 >/dev/null; then
+    checksums="${checksums} SHA512 $(${cmd_digest_sha512} "${filename}" | cut -d' ' -f1)"
+  fi
+  if command -v ${cmd_digest_blake2b} 2>&1 >/dev/null; then
+    checksums="${checksums} BLAKE2B $(${cmd_digest_blake2b} "${filename}" | cut -d' ' -f1)"
+  fi
+  if [ -z "${checksums}" ]; then
+    # Fall back to less secure hashes
+    if command -v ${cmd_digest_sha1} 2>&1 >/dev/null; then
+      checksums="${checksums} SHA1 $(${cmd_digest_sha1} "${filename}" | cut -d' ' -f1)"
+    fi
+    if command -v ${cmd_digest_md5} 2>&1 >/dev/null; then
+      checksums="${checksums} MD5 $(${cmd_digest_md5} "${filename}" | cut -d' ' -f1)"
+    fi
+  fi
+  if [ -z "${checksums}" ]; then
+    >&2 printf 'Error: No checksums produced for %s\n' "${filename}"
+  fi
+  printf '%s\n' "${checksums}"
+}
+
 do_download=1
 
 cmd_get() {
-  if [ "$#" -lt 1 ]; then
+  if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
     >&2 printf 'Usage: mgv get <filename1> [<filename2> ...]\n'
     exit 2
   fi
@@ -138,7 +205,7 @@ cmd_get() {
     if [ "${dest%/*}" != "${dest}" ]; then
       download_path="${dest%/*}"
     else
-      download_path=$(pwd)
+      download_path=${PWD}
     fi
     while read kind filename expected_size url_tag url checksums; do
       case "${kind}" in
@@ -159,8 +226,13 @@ cmd_get() {
       filename="${download_path}/${filename}"
       printf 'File: %s\n' "${filename}"
       if [ "${url_tag}" != "URL" ]; then
-        >&2 printf 'Expected "URL" after file size, got "%s"\n' "${url_tag}"
-        return 1
+        if [ "${do_download}" -ne 0 ]; then
+          >&2 printf 'Expected "URL" after file size, got "%s"\n' "${url_tag}"
+          return 1
+        else
+          # Ignore missing URL if we are only verifying checksums.
+          checksums="${url_tag} ${url} ${checksums}"
+        fi
       fi
       if [ "${do_download}" -ne 0 ]; then
         if check_size "${filename}" "${expected_size}" 2>/dev/null; then
@@ -190,24 +262,129 @@ cmd_get() {
 }
 
 cmd_verify() {
+  if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
+    >&2 printf 'Usage: mgv verify <filename1> [<filename2> ...]\n'
+    exit 2
+  fi
   do_download=0
   cmd_get "$@"
 }
 
 cmd_digest() {
-  >&2 printf 'Not implemented yet!\n'
-  exit 2
+  if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
+    >&2 printf 'Usage: mgv digest <filename1> [<filename2> ...]\n'
+    exit 2
+  fi
+  for dest in "$@"; do
+    if [ -r "${dest}.mgv" ]; then
+      mgv_file=${dest}.mgv
+    else
+      mgv_file=${dest}
+    fi
+    if ! [ -w "${mgv_file}" ]; then
+      >&2 printf '"%s" is not writable\n' "$1"
+      return 1
+    fi
+    while read kind filename expected_size url_tag url checksums; do
+      if [ "${kind}" != 'DIST' ]; then
+        printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${expected_size}" "${url_tag}" "${url}" "${checksums}"
+        continue
+      fi
+      actual_size=$(wc -c <"${filename}")
+      checksums=$(digest_file "${filename}")
+      printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${actual_size}" "${url_tag}" "${url}" "${checksums}"
+    done < "${mgv_file}" > "${mgv_file}.tmp"
+    mv -f "${mgv_file}.tmp" "${mgv_file}"
+  done
 }
 
-cmd_inject() {
-  >&2 printf 'Not implemented yet!\n'
-  exit 2
+cmd_create() {
+  if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
+    >&2 printf 'Usage: mgv create <filename1> [<filename2> ...]\n'
+    exit 2
+  fi
+  for dest in "$@"; do
+    case "${dest}" in
+      *.mgv)
+        >&2 printf 'Ignored: %s\n' "${dest}";;
+      *)
+        mgv_file=${filename}.mgv
+        actual_size=$(wc -c <"${filename}")
+        checksums=$(digest_file "${filename}")
+        printf '%s %s %s %s %s %s\n' "DIST" "${filename}" "${actual_size}" "URL" "-" "${checksums}" > "${mgv_file}.tmp"
+        mv -f "${mgv_file}.tmp" "${mgv_file}"
+        ;;
+    esac
+  done
+}
+
+cmd_set_url() {
+  if [ "$#" -ne 2 ] || [ "$1" = '--help' ]; then
+    >&2 printf 'Usage: mgv set-url <mgv-file> <url>\n'
+    exit 2
+  fi
+  dest=$1
+  new_url=$2
+  if [ -r "${dest}.mgv" ]; then
+    mgv_file=${dest}.mgv
+  else
+    mgv_file=${dest}
+  fi
+  if ! [ -w "${mgv_file}" ]; then
+    >&2 printf '"%s" is not writable\n' "$1"
+    return 1
+  fi
+  if [ "$(wc -l < "${mgv_file}")" -gt 1 ]; then
+    >&2 printf 'set-url only works with single-line mgv files\n'
+    return 1
+  fi
+  while read kind filename expected_size url_tag url checksums; do
+    if [ "${url_tag}" != 'URL' ]; then
+      >&2 printf 'Expected "URL" after file size, got "%s"\n' "${url_tag}"
+      return 1
+    fi
+    printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${expected_size}" "${url_tag}" "${new_url}" "${checksums}"
+  done < "${mgv_file}" > "${mgv_file}.tmp"
+  mv -f "${mgv_file}.tmp" "${mgv_file}"
+}
+
+cmd_fix_size() {
+  if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
+    >&2 printf 'Usage: mgv fix-size <mgv-file> [<mgv-file2> ...]\n'
+    exit 2
+  fi
+  for dest in "$@"; do
+    if [ -r "${dest}.mgv" ]; then
+      mgv_file=${dest}.mgv
+    else
+      mgv_file=${dest}
+    fi
+    if ! [ -w "${mgv_file}" ]; then
+      >&2 printf '"%s" is not writable\n' "$1"
+      return 1
+    fi
+    while read kind filename expected_size url_tag url checksums; do
+      if [ "${kind}" != 'DIST' ] || [ "${expected_size}" != '-' ]; then
+        printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${expected_size}" "${url_tag}" "${url}" "${checksums}"
+        continue
+      fi
+      if [ "${url_tag}" != 'URL' ]; then
+        >&2 printf 'Expected "URL" after file size, got "%s"\n' "${url_tag}"
+        return 1
+      fi
+      actual_size=$(check_download_size "${url}")
+      printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${actual_size}" "${url_tag}" "${url}" "${checksums}"
+    done < "${mgv_file}" > "${mgv_file}.tmp"
+    mv -f "${mgv_file}.tmp" "${mgv_file}"
+  done
 }
 
 case "$1" in
   get) shift; cmd_get "$@";;
   verify) shift; cmd_verify "$@";;
   digest) shift; cmd_digest "$@";;
-  inject) shift; cmd_inject "$@";;
+  create) shift; cmd_create "$@";;
+  set-url) shift; cmd_set_url "$@";;
+  fix-size) shift; cmd_fix_size "$@";;
   *) cmd_get "$@";;
 esac

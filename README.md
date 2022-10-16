@@ -26,10 +26,11 @@ mgv requires curl or wget to download files and some external tools for computin
  - SHA256: `sha256sum`
  - SHA512: `sha512sum`
  - BLAKE2B: `b2sum`
+ - SHA3_256, SHA3_512: `sha3sum` (found in e.g. BusyBox)
 
 All of the above are part of the coreutils package on Linux and should be available on most systems.
 Busybox also provides implementations of everything above except `b2sum`.
-The script avoids bashisms and tries to be posix sh compliant. It should work with bash, dash and busybox sh.
+The script avoids bashisms and tries to be posix sh compliant. It should work with bash, dash and BusyBox sh.
 
 ## References
 
