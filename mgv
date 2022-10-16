@@ -58,7 +58,7 @@ check_download_size() {
     exit 2
   fi
   if [ -n "${curl}" ]; then
-    "${curl}" -I -X GET -f -L "$1" | grep -i 'content-length:' | tail -n 1 | cut -d: -f2 | tr -cd '[0-9]'
+    "${curl}" -I -X GET -fsSL "$1" | grep -i 'content-length:' | tail -n 1 | cut -d: -f2 | tr -cd '[0-9]'
   elif [ -n "${wget}" ]; then
     # Note that unlike standalone wget, BusyBox wget does not print the size
     # when using --spider, but both variants print the Content-Length header
