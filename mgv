@@ -379,6 +379,31 @@ cmd_fix_size() {
   done
 }
 
+cmd_import() {
+  if [ "$#" -ne 0 ]; then
+    >&2 printf 'Usage: mgv import\n'
+    >&2 printf 'Read mgv lines from stdin and write out as separate files\n'
+  fi
+  while read kind filename expected_size url_tag url checksums; do
+    case "${kind}" in
+      # skip comments
+      '#'*) continue;;
+      DIST) ;;
+      *)
+        >&2 printf 'Unknown tag "%s"\n' "${kind}"
+        return 1
+        ;;
+    esac
+    case "${filename}" in
+      */*)
+        >&2 printf 'No slashes allowed in filename: %s\n' "${filename}"
+        return 1
+        ;;
+    esac
+    printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${expected_size}" "${url_tag}" "${url}" "${checksums}" > "${filename}.mgv"
+  done
+}
+
 case "$1" in
   get) shift; cmd_get "$@";;
   verify) shift; cmd_verify "$@";;
@@ -386,5 +411,6 @@ case "$1" in
   create) shift; cmd_create "$@";;
   set-url) shift; cmd_set_url "$@";;
   fix-size) shift; cmd_fix_size "$@";;
+  import) shift; cmd_import "$@";;
   *) cmd_get "$@";;
 esac
