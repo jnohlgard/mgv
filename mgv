@@ -303,10 +303,10 @@ cmd_create() {
     >&2 printf 'Usage: mgv create <filename1> [<filename2> ...]\n'
     exit 2
   fi
-  for dest in "$@"; do
-    case "${dest}" in
+  for filename in "$@"; do
+    case "${filename}" in
       *.mgv)
-        >&2 printf 'Ignored: %s\n' "${dest}";;
+        >&2 printf 'Ignored: %s\n' "${filename}";;
       *)
         mgv_file=${filename}.mgv
         actual_size=$(wc -c <"${filename}")
