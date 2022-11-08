@@ -339,9 +339,16 @@ cmd_set_url() {
     return 1
   fi
   while read kind filename expected_size url_tag url checksums; do
-    if [ "${url_tag}" != 'URL' ]; then
-      >&2 printf 'Expected "URL" after file size, got "%s"\n' "${url_tag}"
+    if [ -z "${expected_size}" ]; then
+      >&2 printf 'Malformed mgv input\n'
       return 1
+    fi
+    if [ "${url_tag}" != 'URL' ]; then
+      if [ -n "${url_tag}" ]; then
+        >&2 printf 'Adding URL before "%s"\n' "${url_tag}"
+        checksums="${url_tag} ${url} ${checksums}"
+        url_tag=URL
+      fi
     fi
     printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${expected_size}" "${url_tag}" "${new_url}" "${checksums}"
   done < "${mgv_file}" > "${mgv_file}.tmp"
