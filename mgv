@@ -388,6 +388,7 @@ cmd_import() {
     case "${kind}" in
       # skip comments
       '#'*) continue;;
+      '') continue;;
       DIST) ;;
       *)
         >&2 printf 'Unknown tag "%s"\n' "${kind}"
