@@ -123,44 +123,46 @@ verify_file() {
     exit 2
   fi
   local filename="$1";shift
+  local pids=
   while [ "$#" -ge 2 ]; do
     local checksum_type="$1"; shift
-    local checksum_value="$2"; shift
-    #printf 'type: %s, value: %s\n' "${checksum_type}" "${checksum_value}"
-    printf '%s: ' "${checksum_type}"
+    local checksum_value="$1"; shift
+    printf 'type: %s, value: %s\n' "${checksum_type}" "${checksum_value}"
     case "${checksum_type}" in
       MD5)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_md5} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_md5}
         ;;
       SHA1)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha1} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha1}
         ;;
       SHA224)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha224} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha224}
         ;;
       SHA256)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha256} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha256}
         ;;
       SHA384)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha384} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha384}
         ;;
       SHA512)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha512} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha512}
         ;;
       SHA3_256)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha3_256} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha3_256}
         ;;
       SHA3_512)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha3_512} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_sha3_512}
         ;;
       BLAKE2B)
-        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_blake2b} || return $?
+        printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_blake2b}
         ;;
       *)
-        printf 'not checked\n'
+        printf '%s not checked\n' "${checksum_type}"
         ;;
-    esac
+    esac &
+    pids="${pids} $!"
   done
+  wait ${pids}
   if [ "$#" -ne 0 ]; then
     >&2 printf 'Error: extra checksum argument "%s"\n' "$@"
     return 2
