@@ -127,7 +127,7 @@ verify_file() {
   while [ "$#" -ge 2 ]; do
     local checksum_type="$1"; shift
     local checksum_value="$1"; shift
-    printf 'type: %s, value: %s\n' "${checksum_type}" "${checksum_value}"
+    #printf 'type: %s, value: %s\n' "${checksum_type}" "${checksum_value}"
     case "${checksum_type}" in
       MD5)
         printf '%s *%s\n' "${checksum_value}" "${filename}" | ${cmd_check_md5}
