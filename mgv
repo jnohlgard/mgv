@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail
+set -euf
 
 usage() {
   printf 'Usage: %s <command> <destination-file1> [... <destination-fileN>]\n\n' "${0##*/}"
