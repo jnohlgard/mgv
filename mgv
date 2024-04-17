@@ -311,10 +311,18 @@ cmd_digest() {
       return 1
     fi
     while read kind filename expected_size url_tag url checksums; do
-      if [ "${kind}" != 'DIST' ]; then
-        printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${expected_size}" "${url_tag}" "${url}" "${checksums}"
-        continue
-      fi
+      case "${kind}" in
+        # skip comments
+        '#'*)
+          printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${expected_size}" "${url_tag}" "${url}" "${checksums}"
+          continue ;;
+        '') printf '\n'; continue ;;
+        'DIST') ;;
+        *)
+          >&2 printf 'Unknown tag "%s"\n' "${kind}"
+          return 1
+          ;;
+      esac
       local actual_size="$(wc -c <"${filename}")"
       local new_checksums="$(digest_file "${filename}")"
       printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${actual_size}" "${url_tag}" "${url}" "${new_checksums}"
@@ -416,8 +424,10 @@ cmd_import() {
   while read kind filename expected_size url_tag url checksums; do
     case "${kind}" in
       # skip comments
-      '#'*) continue;;
-      '') continue;;
+      '#'*)
+        printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${expected_size}" "${url_tag}" "${url}" "${checksums}"
+        continue ;;
+      '') printf '\n'; continue ;;
       DIST) ;;
       *)
         >&2 printf 'Unknown tag "%s"\n' "${kind}"
