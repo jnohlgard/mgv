@@ -19,9 +19,17 @@ if [ "$#" -lt 1 ] || [ "$1" = '--help' ]; then
   exit 2
 fi
 
+curl="$(command -v curl 2>/dev/null)" || curl=
+wget="$(command -v wget 2>/dev/null)" || wget=
 
-curl=$(command -v curl 2>/dev/null || true)
-wget=$(command -v wget 2>/dev/null || true)
+if ! [ -t 0 ]; then
+  # stdin is not a tty, default to silent mode
+  curlsilent=-sS
+  wgetsilent=-q
+else
+  curlsilent=
+  wgetsilent=
+fi
 
 cmd_check_md5='md5sum -c'
 cmd_check_sha1='sha1sum -c'
@@ -42,10 +50,12 @@ resume_download_to() {
     >&2 printf 'Usage: resume_download_to <file> <URL>\n'
     exit 2
   fi
+  local dest="$1";shift
+  local url="$1";shift
   if [ -n "${curl}" ]; then
-    "${curl}" -R -C - -f -L -o "$1" "$2"
+    "${curl}" ${curlsilent} -R -C - -f -L -o "${dest}" "${url}"
   elif [ -n "${wget}" ]; then
-    "${wget}" --timestamping -c -O "$1" "$2"
+    "${wget}" ${wgetsilent} --timestamping -c -O "${dest}" "${url}"
   else
     >&2 printf 'Required: curl or wget\n'
     exit 1
