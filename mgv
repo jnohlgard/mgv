@@ -398,8 +398,9 @@ cmd_fix_size() {
 
 cmd_import() {
   if [ "$#" -ne 0 ]; then
-    >&2 printf 'Usage: mgv import\n'
-    >&2 printf 'Read mgv lines from stdin and write out as separate files\n'
+    printf 'Usage: mgv import\n'
+    printf 'Read mgv lines from stdin and write out as separate files\n'
+    return 2
   fi
   while read kind filename expected_size url_tag url checksums; do
     case "${kind}" in
