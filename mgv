@@ -297,9 +297,16 @@ cmd_digest() {
     return 2
   fi
   for dest in "$@"; do
-    local mgv_file="$(mgv_file_name "${dest}")"
+    local mgv_file="${dest%.mgv}.mgv"
+    if ! [ -f "${mgv_file}" ]; then
+      >&2 printf 'No such file: %s\n' "${mgv_file}"
+      if [ -f "${mgv_file%.mgv}" ]; then
+        >&2 printf 'Use %s create <filename> to create a new .mgv file\n' "${0##*/}"
+      fi
+      return 1
+    fi
     if ! [ -w "${mgv_file}" ]; then
-      >&2 printf '"%s" is not writable\n' "$1"
+      >&2 printf 'Not writable: %s\n' "${mgv_file}"
       return 1
     fi
     while read kind filename expected_size url_tag url checksums; do
