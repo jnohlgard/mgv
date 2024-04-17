@@ -347,7 +347,7 @@ cmd_create() {
         local mgv_file="${filename}.mgv"
         local actual_size="$(wc -c <"${filename}")"
         local checksums="$(digest_file "${filename}")"
-        printf '%s %s %s %s %s %s\n' "DIST" "${filename}" "${actual_size}" "URL" "-" "${checksums}" > "${mgv_file}.tmp"
+        printf '%s %s %s %s %s %s\n' "DIST" "${filename##*/}" "${actual_size}" "URL" "-" "${checksums}" > "${mgv_file}.tmp"
         mv -f "${mgv_file}.tmp" "${mgv_file}"
         ;;
     esac
