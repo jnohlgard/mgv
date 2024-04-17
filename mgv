@@ -173,6 +173,7 @@ digest_file() {
   fi
   local filename="$1"; shift
   local checksums=
+
   if command -v ${cmd_digest_sha256} 2>&1 >/dev/null; then
     checksums="${checksums} SHA256 $(${cmd_digest_sha256} "${filename}" | cut -d' ' -f1)"
   fi
@@ -194,7 +195,7 @@ digest_file() {
   if [ -z "${checksums}" ]; then
     >&2 printf 'Error: No checksums produced for %s\n' "${filename}"
   fi
-  printf '%s\n' "${checksums}"
+  printf '%s ' "${checksums}"
 }
 
 mgv_file_name() {
@@ -262,7 +263,7 @@ cmd_get() {
             # Already downloaded
             continue
           fi
-          printf 'Retrying download\n'
+          >&2 printf 'Retrying download\n'
         fi
         download_file "${filename}" "${url}"
       fi
