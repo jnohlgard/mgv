@@ -162,7 +162,7 @@ verify_file() {
     esac &
     pids="${pids} $!"
   done
-  wait ${pids}
+  [ -z "${pids}" ] || wait ${pids}
   if [ "$#" -ne 0 ]; then
     >&2 printf 'Error: extra checksum argument "%s"\n' "$@"
     return 2
