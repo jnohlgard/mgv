@@ -302,6 +302,10 @@ cmd_digest() {
   fi
   for dest in "$@"; do
     local mgv_file="${dest%.mgv}.mgv"
+    local file_path="${dest%/*}"
+    if [ "${file_path}" = "${dest}" ]; then
+      file_path="${PWD}"
+    fi
     if ! [ -f "${mgv_file}" ]; then
       >&2 printf 'No such file: %s\n' "${mgv_file}"
       if [ -f "${mgv_file%.mgv}" ]; then
