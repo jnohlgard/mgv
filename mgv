@@ -162,7 +162,9 @@ verify_file() {
     esac &
     pids="${pids} $!"
   done
-  [ -z "${pids}" ] || wait ${pids}
+  if [ -n "${pids}" ]; then
+    wait ${pids}
+  fi
   if [ "$#" -ne 0 ]; then
     >&2 printf 'Error: extra checksum argument "%s"\n' "$@"
     return 2
@@ -175,31 +177,52 @@ digest_file() {
   fi
   local filename="$1"; shift
   [ -f "${filename}" ]
+  local pids=
+  local tmpdir="$(mktemp -d mgv.digest.XXXXXXXX)"
   local checksums=
-
   if command -v ${cmd_digest_sha256} 2>&1 >/dev/null; then
-    checksums="${checksums} SHA256 $(${cmd_digest_sha256} "${filename}" | cut -d' ' -f1)"
+    ${cmd_digest_sha256} "${filename}" | cut -d' ' -f1 \
+      >"${tmpdir}/digest.SHA256" &
+    checksums="${checksums} SHA256"
+    pids="${pids} $!"
   fi
   if command -v ${cmd_digest_sha512} 2>&1 >/dev/null; then
-    checksums="${checksums} SHA512 $(${cmd_digest_sha512} "${filename}" | cut -d' ' -f1)"
+    ${cmd_digest_sha512} "${filename}" | cut -d' ' -f1 \
+      >"${tmpdir}/digest.SHA512" &
+    checksums="${checksums} SHA512"
+    pids="${pids} $!"
   fi
   if command -v ${cmd_digest_blake2b} 2>&1 >/dev/null; then
-    checksums="${checksums} BLAKE2B $(${cmd_digest_blake2b} "${filename}" | cut -d' ' -f1)"
+    ${cmd_digest_blake2b} "${filename}" | cut -d' ' -f1 \
+      >"${tmpdir}/digest.BLAKE2B" &
+    checksums="${checksums} BLAKE2B"
+    pids="${pids} $!"
   fi
   if [ -z "${checksums}" ]; then
     # Fall back to less secure hashes
     if command -v ${cmd_digest_sha1} 2>&1 >/dev/null; then
-      checksums="${checksums} SHA1 $(${cmd_digest_sha1} "${filename}" | cut -d' ' -f1)"
+      ${cmd_digest_sha1} "${filename}" | cut -d' ' -f1 \
+        >"${tmpdir}/digest.SHA1" &
+      checksums="${checksums} SHA1"
+      pids="${pids} $!"
     fi
     if command -v ${cmd_digest_md5} 2>&1 >/dev/null; then
-      checksums="${checksums} MD5 $(${cmd_digest_md5} "${filename}" | cut -d' ' -f1)"
+      ${cmd_digest_md5} "${filename}" | cut -d' ' -f1 \
+        >"${tmpdir}/digest.MD5" &
+      checksums="${checksums} MD5"
+      pids="${pids} $!"
     fi
+  fi
+  if [ -n "${pids}" ]; then
+    wait ${pids}
   fi
   if [ -z "${checksums}" ]; then
     >&2 printf 'Error: No checksums produced for %s\n' "${filename}"
     return 1
   fi
-  printf '%s ' "${checksums}"
+  for digest_tag in ${checksums}; do
+    printf ' %s ' "${digest_tag}" | cat - "${tmpdir}/digest.${digest_tag}"
+  done
 }
 
 mgv_file_name() {
