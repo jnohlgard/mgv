@@ -197,6 +197,7 @@ digest_file() {
   fi
   if [ -z "${checksums}" ]; then
     >&2 printf 'Error: No checksums produced for %s\n' "${filename}"
+    return 1
   fi
   printf '%s ' "${checksums}"
 }
