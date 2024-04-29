@@ -113,7 +113,7 @@ check_size() {
     # Ignore size
     return 0
   fi
-  local actual_size="$(wc -c <"${filename}")"
+  local actual_size="$(wc -c "${filename}")"
   [ "${expected_size}" -eq "${actual_size}" ]
 }
 
@@ -325,7 +325,11 @@ cmd_digest() {
           return 1
           ;;
       esac
-      local actual_size="$(wc -c <"${filename}")"
+      if ! [ -f "${filename}" ]; then
+        >&2 printf 'No such file: %s\n' "${filename}"
+        return 1
+      fi
+      local actual_size="$(wc -c "${filename}")"
       local new_checksums="$(digest_file "${filename}")"
       printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${actual_size}" "${url_tag}" "${url}" "${new_checksums}"
     done < "${mgv_file}" > "${mgv_file}.tmp"
@@ -342,15 +346,18 @@ cmd_create() {
     case "${filename}" in
       *.mgv)
         >&2 printf 'Not creating %s.mgv\n' "${filename}"
-        ;;
-      *)
-        local mgv_file="${filename}.mgv"
-        local actual_size="$(wc -c <"${filename}")"
-        local checksums="$(digest_file "${filename}")"
-        printf '%s %s %s %s %s %s\n' "DIST" "${filename##*/}" "${actual_size}" "URL" "-" "${checksums}" > "${mgv_file}.tmp"
-        mv -f "${mgv_file}.tmp" "${mgv_file}"
+        continue
         ;;
     esac
+    if ! [ -f "${filename}" ]; then
+      >&2 printf 'No such file: %s\n' "${filename}"
+      return 1
+    fi
+    local mgv_file="${filename}.mgv"
+    local actual_size="$(wc -c "${filename}")"
+    local checksums="$(digest_file "${filename}")"
+    printf '%s %s %s %s %s %s\n' "DIST" "${filename##*/}" "${actual_size}" "URL" "-" "${checksums}" > "${mgv_file}.tmp"
+    mv -f "${mgv_file}.tmp" "${mgv_file}"
   done
 }
 
