@@ -227,6 +227,7 @@ digest_file() {
   for digest_tag in ${checksums}; do
     printf ' %s ' "${digest_tag}" | cat - "${tmpdir}/digest.${digest_tag}"
   done
+  rm -rf "${tmpdir}"
 }
 
 mgv_file_name() {
