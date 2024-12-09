@@ -182,22 +182,22 @@ digest_file() {
   local filename="$1"; shift
   [ -f "${filename}" ]
   local pids=
-  local tmpdir="$(mktemp -d mgv.digest.XXXXXXXX)"
+  local tmpdir="$(mktemp -d -t mgv.digest.XXXXXXXX)"
   local checksums=
   if command -v ${cmd_digest_sha256} 2>&1 >/dev/null; then
-    ${cmd_digest_sha256} "${filename}" | cut -d' ' -f1 \
+    ${cmd_digest_sha256} "${filename}" | cut -d' ' -f1 | tr -d '\n' \
       >"${tmpdir}/digest.SHA256" &
     checksums="${checksums} SHA256"
     pids="${pids} $!"
   fi
   if command -v ${cmd_digest_sha512} 2>&1 >/dev/null; then
-    ${cmd_digest_sha512} "${filename}" | cut -d' ' -f1 \
+    ${cmd_digest_sha512} "${filename}" | cut -d' ' -f1 | tr -d '\n' \
       >"${tmpdir}/digest.SHA512" &
     checksums="${checksums} SHA512"
     pids="${pids} $!"
   fi
   if command -v ${cmd_digest_blake2b} 2>&1 >/dev/null; then
-    ${cmd_digest_blake2b} "${filename}" | cut -d' ' -f1 \
+    ${cmd_digest_blake2b} "${filename}" | cut -d' ' -f1 | tr -d '\n' \
       >"${tmpdir}/digest.BLAKE2B" &
     checksums="${checksums} BLAKE2B"
     pids="${pids} $!"
@@ -205,13 +205,13 @@ digest_file() {
   if [ -z "${checksums}" ]; then
     # Fall back to less secure hashes
     if command -v ${cmd_digest_sha1} 2>&1 >/dev/null; then
-      ${cmd_digest_sha1} "${filename}" | cut -d' ' -f1 \
+      ${cmd_digest_sha1} "${filename}" | cut -d' ' -f1 | tr -d '\n' \
         >"${tmpdir}/digest.SHA1" &
       checksums="${checksums} SHA1"
       pids="${pids} $!"
     fi
     if command -v ${cmd_digest_md5} 2>&1 >/dev/null; then
-      ${cmd_digest_md5} "${filename}" | cut -d' ' -f1 \
+      ${cmd_digest_md5} "${filename}" | cut -d' ' -f1 | tr -d '\n' \
         >"${tmpdir}/digest.MD5" &
       checksums="${checksums} MD5"
       pids="${pids} $!"
