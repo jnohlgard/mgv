@@ -99,6 +99,10 @@ download_file() {
   return "${code}"
 }
 
+file_size() {
+  stat -L -c '%s' "$@"
+}
+
 check_size() {
   if [ "$#" -ne 2 ]; then
     printf 'Usage: check_size <filename> <size>\n'
@@ -113,7 +117,7 @@ check_size() {
     # Ignore size
     return 0
   fi
-  local actual_size="$(wc -c "${filename}")"
+  local actual_size="$(file_size "${filename}")"
   [ "${expected_size}" -eq "${actual_size}" ]
 }
 
@@ -358,7 +362,7 @@ cmd_digest() {
         >&2 printf 'No such file: %s\n' "${filename}"
         return 1
       fi
-      local actual_size="$(wc -c "${filename}")"
+      local actual_size="$(file_size "${filename}")"
       local new_checksums="$(digest_file "${filename}")"
       printf '%s %s %s %s %s %s\n' "${kind}" "${filename}" "${actual_size}" "${url_tag}" "${url}" "${new_checksums}"
     done < "${mgv_file}" > "${mgv_file}.tmp"
@@ -383,7 +387,7 @@ cmd_create() {
       return 1
     fi
     local mgv_file="${filename}.mgv"
-    local actual_size="$(wc -c "${filename}")"
+    local actual_size="$(file_size "${filename}")"
     local checksums="$(digest_file "${filename}")"
     printf '%s %s %s %s %s %s\n' "DIST" "${filename##*/}" "${actual_size}" "URL" "-" "${checksums}" > "${mgv_file}.tmp"
     mv -f "${mgv_file}.tmp" "${mgv_file}"
